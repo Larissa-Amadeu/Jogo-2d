@@ -1,28 +1,105 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dinossauro Game</title>
-    <style>
-        body {
+    <meta charset="utf-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <title>Pouf</title>
+    <meta name="description" content="">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <link rel="icon" href="" type="">
+    <style type="text/css">
+       
+
+        .silkscreen-bold {
+            font-family: "Silkscreen", sans-serif;
+            font-weight: 700;
+            font-style: normal;
+        }
+
+        html, body {
+            font-family: "Silkscreen", sans-serif;
+            background-color: #f0aceb;
+            color: #ffffff;
+            margin: 0;
+            padding: 0;
+        }
+        #canvas {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            margin: auto;
+            display: none;
+        }
+        #main-menu {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            margin: auto;
+            text-align: center;
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
-            height: 100vh;
-            margin: 0;
-            background-color: #f0f0f0;
+            background-image: url('./img/main-mn.png');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            width: 1127px;
+            height: 606px;
         }
-        #gameCanvas {
-            border: 1px solid #000;
+        #game-over-container {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            margin: auto;
+            text-align: center;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-image: url('./img/game-over.png');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            width: 1127px;
+            height: 606px;
+        }
+        .btn {
+            padding: 10px 20px;
+            background-color: #000000;
+            color: #ffffff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 18px;
+            margin-top: 20px;
+        }
+        .btn:hover {
             background-color: #ffffff;
+            color: #000000;
         }
     </style>
 </head>
 <body>
-    <audio id="ambientSound" src="ambient.mp3" loop></audio>
-    <audio id="failSound" src="fail.mp3"></audio>
-    <canvas id="gameCanvas"></canvas>
+    <div id="main-menu">
+        <button id="play-button" class="btn">Jogar</button>
+    </div>
+    <canvas id="canvas"></canvas>
+    <div id="game-over-container">
+        <button id="retry-button" class="btn">Recomeçar</button>
+    </div>
+    <audio id="ambientSound" loop>
+        <source src="audio/bg.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="failSound">
+        <source src="audio/fail.mp3" type="audio/mpeg">
+    </audio>
     <script src="game.js"></script>
 </body>
 </html>

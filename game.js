@@ -1,174 +1,257 @@
-const canvas = document.getElementById('gameCanvas');
-canvas.width = 1000; // Aumenta a largura da tela do jogo
-canvas.height = 300; // Aumenta a altura da tela do jogo
-const ctx = canvas.getContext('2d');
-const ambientSound = document.getElementById('ambientSound');
-const failSound = document.getElementById('failSound');
-
-// Carrega as imagens
-const dinoImg = new Image();
-const cactusImg = new Image();
-const groundImg = new Image();
-
-dinoImg.src = 'coelho.png';
-cactusImg.src = 'mato.png';
-groundImg.src = 'ground.png';
-
-// Adiciona logs para verificar o carregamento das imagens
-dinoImg.onload = () => console.log('Dino image loaded');
-cactusImg.onload = () => console.log('Cactus image loaded');
-groundImg.onload = () => console.log('Ground image loaded');
-dinoImg.onerror = () => console.error('Failed to load dino image');
-cactusImg.onerror = () => console.error('Failed to load cactus image');
-groundImg.onerror = () => console.error('Failed to load ground image');
-
-// Variáveis do jogo
-let dino = {
-    x: 50,
-    y: canvas.height - 60, // Ajusta a posição inicial do dinossauro
-    width: 40, // Ajusta a largura da imagem do dinossauro
-    height: 40, // Ajusta a altura da imagem do dinossauro
-    dy: 0,
-    jumpStrength: 13, // Ajusta a força do salto
-    gravity: 0.9, // Ajusta a gravidade
-    grounded: false
+const assets = {
+    background: './img/bg.png',
+    clouds: './img/clouds.png',
+    dino: './img/crash.gif',
+    cactus: './img/obstaculo.png'
 };
 
+const screen = {
+    width: 1127,
+    height: 606
+};
+
+const gap = 200;
+const generationInterval = 800;
+
+let lastFrame = 0;
+let lastGeneration = 0;
+
+let canvasElement = document.querySelector('canvas');
+canvasElement.width = screen.width;
+canvasElement.height = screen.height;
+adjustScreen();
+let context = canvasElement.getContext('2d');
+
+const bgMusic = document.getElementById('ambientSound');
+bgMusic.volume = 0.9;
+const failSound = document.getElementById('failSound');
+failSound.volume = 0.9;
+
+class Background {
+    constructor() {
+        this.image = new Image();
+        this.image.src = assets.background;
+        this.image.onload = () => {
+            this.draw(0);
+        };
+    }
+    draw(delta) {
+        context.drawImage(this.image, 0, 0);
+    }
+}
+
+class Clouds {
+    constructor() {
+        this.elapsed = 0;
+        this.speed = 50;
+        this.image = new Image();
+        this.repeat = 1;
+        this.image.src = assets.clouds;
+        this.image.onload = () => {
+            this.repeat = Math.ceil(canvasElement.width / this.image.width);
+            this.draw(0);
+        };
+    }
+    draw(delta) {
+        this.elapsed += delta;
+        let offset = this.elapsed * this.speed % this.image.width;
+        context.save();
+        context.translate(-offset, 0);
+        for (let i = 0; i < this.repeat; i++) {
+            context.drawImage(this.image, i * this.image.width, 0);
+        }
+        context.restore();
+    }
+}
+
+class Ground {
+    constructor() {
+        this.y = canvasElement.height - 50;
+        this.height = 50;
+    }
+    draw() {
+        context.fillStyle = '#f0aceb';
+        context.fillRect(0, this.y, canvasElement.width, this.height);
+    }
+}
+
+class Dino {
+    constructor() {
+        this.x = 50;
+        this.y = canvasElement.height - 90;
+        this.width = 100;
+        this.height = 100;
+        this.dy = 0;
+        this.jumpStrength = 19;
+        this.gravity = 1.0;
+        this.isGrounded = false;
+        this.image = new Image();
+        this.image.src = assets.dino;
+        this.collisionMargin = 15;
+    }
+    draw() {
+        context.drawImage(this.image, this.x, this.y, this.width, this.height);
+    }
+    update() {
+        if (this.isGrounded && this.dy === 0 && isJumping) {
+            this.dy = -this.jumpStrength;
+            this.isGrounded = false;
+        }
+        this.dy += this.gravity;
+        this.y += this.dy;
+        if (this.y + this.height > canvasElement.height - ground.height) {
+            this.y = canvasElement.height - ground.height - this.height;
+            this.dy = 0;
+            this.isGrounded = true;
+        }
+    }
+}
+
+class Cactus {
+    constructor(x, y, width, height) {
+        this.x = x;
+        this.y = y;
+        this.width = width;
+        this.height = height;
+        this.image = new Image();
+        this.image.src = assets.cactus;
+        this.collisionMargin = 20;
+    }
+    draw() {
+        context.drawImage(this.image, this.x, this.y, this.width, this.height);
+    }
+    update() {
+        this.x -= gameSpeed;
+    }
+}
+
+let dino = new Dino();
 let obstacles = [];
-let gameSpeed = 10; // Aumenta a velocidade do jogo
+let gameSpeed = 20;
 let score = 0;
+let isJumping = false;
 
-// Função para desenhar o dinossauro
-function drawDino() {
-    ctx.drawImage(dinoImg, dino.x, dino.y, dino.width, dino.height);
-}
-
-// Função para desenhar obstáculos
-function drawObstacles() {
-    obstacles.forEach(obstacle => {
-        ctx.drawImage(cactusImg, obstacle.x, obstacle.y, obstacle.width, obstacle.height);
-    });
-}
-
-// Função para desenhar o chão
-function drawGround() {
-    ctx.drawImage(groundImg, 0, canvas.height - 10, canvas.width, 10);
-}
-
-function randomIntFromRange(min, max) {
-    return Math.floor(Math.random() * (max - min + 1) + min);
-}
-
-// Função para atualizar obstáculos
 function updateObstacles() {
     obstacles.forEach(obstacle => {
-        obstacle.x -= gameSpeed;
+        obstacle.update();
     });
 
-    if (obstacles.length === 0 || obstacles[obstacles.length - 1].x < canvas.width - 300) { // Aumenta a distância entre os cactos
-        let obstacle = {
-            x: canvas.width,
-            y: canvas.height - 50, // Ajusta a posição dos obstáculos
-            width: randomIntFromRange(20, 40),
-            height: randomIntFromRange(20, 40)
-        };
+    let currentTime = Date.now();
+    if (currentTime - lastGeneration > generationInterval) {
+        let obstacleWidth = 140;
+        let obstacleHeight = 140;
+        let obstacleX = canvasElement.width;
+        let obstacleY = canvasElement.height - ground.height - obstacleHeight;
+        let obstacle = new Cactus(obstacleX, obstacleY, obstacleWidth, obstacleHeight);
         obstacles.push(obstacle);
+        lastGeneration = currentTime;
     }
 
-    if (obstacles[0].x + obstacles[0].width < 0) {
+    if (obstacles.length > 0 && obstacles[0].x + obstacles[0].width < 0) {
         obstacles.shift();
         score++;
     }
 }
 
-// Função para detectar colisão
 function detectCollision() {
     obstacles.forEach(obstacle => {
         if (
-            dino.x < obstacle.x + obstacle.width &&
-            dino.x + dino.width > obstacle.x &&
-            dino.y < obstacle.y + obstacle.height &&
-            dino.y + dino.height > obstacle.y
+            dino.x + dino.collisionMargin < obstacle.x + obstacle.width - obstacle.collisionMargin &&
+            dino.x + dino.width - dino.collisionMargin > obstacle.x + obstacle.collisionMargin &&
+            dino.y + dino.collisionMargin < obstacle.y + obstacle.height - obstacle.collisionMargin &&
+            dino.y + dino.height - dino.collisionMargin > obstacle.y + obstacle.collisionMargin
         ) {
-            // Colisão detectada
-            ambientSound.pause();
+            bgMusic.pause();
             failSound.play();
-            alert('Game Over! Score: ' + score);
-            document.location.reload();
+            isGameOver = true;
+            cancelAnimationFrame(updateFrameId);
+            console.log('Game Over! Score: ' + score);
+            document.getElementById('game-over-container').style.display = 'flex';
         }
     });
 }
 
-// Função para atualizar o dinossauro
-function updateDino() {
-    if (dino.grounded && dino.dy === 0 && isJumping) {
-        dino.dy = -dino.jumpStrength;
-        dino.grounded = false;
-    }
+let isGameOver = false;
 
-    dino.dy += dino.gravity;
-    dino.y += dino.dy;
-
-    if (dino.y + dino.height > canvas.height - 10) {
-        dino.y = canvas.height - 10 - dino.height;
-        dino.dy = 0;
-        dino.grounded = true;
-    }
-}
-
-// Variável para detectar se o jogador está tentando pular
-let isJumping = false;
 document.addEventListener('keydown', (e) => {
-    if (e.code === 'Space' || e.code === 'ArrowUp') {
+    if (e.code === 'Space') {
         isJumping = true;
     }
 });
 
 document.addEventListener('keyup', (e) => {
-    if (e.code === 'Space' || e.code === 'ArrowUp') {
+    if (e.code === 'Space') {
         isJumping = false;
     }
 });
 
-// Função para desenhar o jogo
-function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    drawGround();
-    drawDino();
-    drawObstacles();
-    drawScore(); // Chama a função para desenhar o score
-}
-
-// Função para desenhar a pontuação
-function drawScore() {
-    ctx.fillStyle = 'black';
-    ctx.font = '20px Arial';
-    ctx.fillText('Score: ' + score, 10, 30); // Exibe a pontuação no canto superior esquerdo
-}
-
-// Função para atualizar o jogo
-function update() {
-    updateDino();
-    updateObstacles();
-    detectCollision();
-}
-
-// Função principal do jogo
-function gameLoop() {
-    draw();
-    update();
-    requestAnimationFrame(gameLoop);
-}
-
-// Iniciar o loop do jogo somente quando todas as imagens forem carregadas
-Promise.all([
-    new Promise(resolve => { dinoImg.onload = resolve; }),
-    new Promise(resolve => { cactusImg.onload = resolve; }),
-    new Promise(resolve => { groundImg.onload = resolve; })
-]).then(() => {
-    console.log('All images loaded, starting game loop');
-    gameLoop();
-}).catch(error => {
-    console.error('Error loading images:', error);
+document.getElementById('play-button').addEventListener('click', () => {
+    document.getElementById('main-menu').style.display = 'none';
+    canvasElement.style.display = 'block';
+    startGame();
 });
+
+document.getElementById('retry-button').addEventListener('click', () => {
+    document.getElementById('game-over-container').style.display = 'none';
+    isGameOver = false;
+    score = 0;
+    obstacles = [];
+    dino = new Dino();
+    bgMusic.currentTime = 0;
+    bgMusic.play();
+    startGame();
+});
+
+function update() {
+    updateFrameId = requestAnimationFrame(update);
+    let now = Date.now();
+    let delta = (now - lastFrame) / 1000;
+    lastFrame = now;
+
+    context.clearRect(0, 0, canvasElement.width, canvasElement.height);
+
+    bg.draw(delta);
+    clouds.draw(delta);
+    ground.draw();
+
+    dino.update();
+    dino.draw();
+
+    updateObstacles();
+    obstacles.forEach(obstacle => obstacle.draw());
+
+    if (!isGameOver) {
+        detectCollision();
+    }
+
+    context.fillStyle = 'white';
+    context.font = '30px Arial';
+    context.strokeStyle = 'black';
+    context.lineWidth = 5;
+    context.strokeText('Score: ' + score, 10, 30);
+    context.fillText('Score: ' + score, 10, 30);
+}
+
+let bg = new Background();
+let clouds = new Clouds();
+let ground = new Ground();
+
+function adjustScreen() {
+    let aspectRatio = screen.width / screen.height;
+    let windowRatio = window.innerWidth / window.innerHeight;
+
+    if (aspectRatio < windowRatio) {
+        canvasElement.style.width = "auto";
+        canvasElement.style.height = window.innerHeight + 'px';
+    } else {
+        canvasElement.style.height = "auto";
+        canvasElement.style.width = window.innerWidth + 'px';
+    }
+}
+
+function startGame() {
+    lastFrame = Date.now();
+    updateFrameId = requestAnimationFrame(update);
+}
+
+window.addEventListener("resize", adjustScreen);
